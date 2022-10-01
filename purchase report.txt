@@ -1,0 +1,293 @@
+*&---------------------------------------------------------------------*
+*& Report ZVATPURCHASE_REPORT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zvatpurchase_report.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME.
+  PARAMETERS pccode TYPE bukrs OBLIGATORY.
+  SELECT-OPTIONS sdat FOR sy-datum OBLIGATORY.
+SELECTION-SCREEN END OF BLOCK b1.
+
+TYPES: BEGIN OF ty_final,
+         stceg    TYPE t001-stceg,
+         belnr    TYPE bseg-belnr,
+         butxt    TYPE t001-butxt,
+         xblnr    TYPE rbkp-xblnr,
+         bldat    TYPE rbkp-bldat,
+         budat    TYPE rbkp-budat,
+         date(50) TYPE c,
+         netamt   TYPE rseg-wrbtr,
+         vatamt   TYPE rtax1u15-wmwst,
+         vatamt1  TYPE rtax1u15-wmwst,
+         mwskz1   TYPE rbkp-mwskz1,
+         buzid(2) TYPE c,
+         text1    TYPE t007s-text1,
+         name1    TYPE lfa1-name1,
+         stceg1   TYPE lfa1-stceg,
+         maktx    TYPE makt-maktx,
+         bl       TYPE c,
+       END OF ty_final.
+TYPES: BEGIN OF ty_final2,
+         serailno TYPE int4,
+         stceg    TYPE t001-stceg,
+         belnr    TYPE bseg-belnr,
+         butxt    TYPE t001-butxt,
+         xblnr    TYPE rbkp-xblnr,
+         bldat    TYPE rbkp-bldat,
+         budat    TYPE rbkp-budat,
+         date(50) TYPE c,
+         netamt   TYPE rseg-wrbtr,
+         vatamt   TYPE rtax1u15-wmwst,
+         vatamt1  TYPE rtax1u15-wmwst,
+         mwskz1   TYPE rbkp-mwskz1,
+         text1    TYPE t007s-text1,
+         name1    TYPE lfa1-name1,
+         stceg1   TYPE lfa1-stceg,
+         maktx    TYPE makt-maktx,
+         bl       TYPE c,
+       END OF ty_final2.
+DATA: gt_final    TYPE TABLE OF ty_final, gs_final TYPE ty_final, gt_RTAX1U15 TYPE TABLE OF rtax1u15,
+      gt_final2   TYPE TABLE OF ty_final, gs_final2 TYPE ty_final, gt_final3 TYPE TABLE OF ty_final2, gs_final3 TYPE ty_final2.
+
+SELECT belnr, xblnr, bldat, budat, mwskz1, lifnr, bukrs, waers FROM rbkp INTO TABLE @DATA(gt_rbkp) WHERE bukrs = @pccode.
+SELECT bukrs, stceg, butxt FROM t001 INTO TABLE @DATA(gt_t001).
+SELECT text1 , mwskz, kalsm, spras FROM t007s INTO TABLE @DATA(gt_t007).
+SELECT lifnr, name1, stceg FROM lfa1 INTO TABLE @DATA(gt_lfa1).
+SELECT belnr, matnr, ebeln, ebelp, wrbtr, mwskz FROM rseg INTO TABLE @DATA(gt_rseg).
+SELECT ebeln, ebelp, mwskz, netwr FROM ekpo INTO TABLE @DATA(gt_ekpo).
+SELECT matnr, maktx, spras FROM makt INTO TABLE @DATA(gt_makt).
+SORT gt_T001 BY bukrs.
+LOOP AT gt_rseg INTO DATA(gs_rseg).
+  gs_final-belnr = gs_rseg-belnr.
+  gs_final-mwskz1 = gs_rseg-mwskz.
+  READ TABLE gt_rbkp INTO DATA(gs_rbkp) WITH KEY belnr = gs_rseg-belnr bukrs = pccode.
+  gs_final-xblnr = gs_rbkp-xblnr.
+  gs_final-bldat = gs_rbkp-bldat.
+  gs_final-budat = gs_rbkp-budat.
+
+  gs_final-date = | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { '.' } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+  READ TABLE gt_t001 INTO DATA(gs_t001) WITH KEY bukrs = gs_rbkp-bukrs.
+  gs_final-stceg = gs_t001-stceg.
+  gs_Final-butxt = gs_t001-butxt.
+
+  READ TABLE gt_lfa1 INTO DATA(gs_lfa1) WITH KEY lifnr = gs_rbkp-lifnr.
+  gs_final-name1 = gs_lfa1-name1.
+  gs_final-stceg1 = gs_lfa1-stceg.
+  READ TABLE gt_t007 INTO DATA(gs_t007s) WITH KEY mwskz = gs_rseg-mwskz kalsm = 'TAXAEN' spras = 'EN' .
+  IF sy-subrc = 0.
+    gs_final-text1 = gs_t007s-text1.
+  ENDIF.
+
+
+*  READ TABLE gt_ekpo INTO DATA(gs_ekpo) WITH KEY ebeln = gs_rseg-ebeln ebelp = gs_rseg-ebelp.
+  DATA lwrbtr TYPE bseg-wrbtr.
+  lwrbtr = gs_rseg-wrbtr.
+  gs_Final-netamt = lwrbtr.
+  CALL FUNCTION 'CALCULATE_TAX_FROM_NET_AMOUNT'
+    EXPORTING
+      i_bukrs           = pccode
+      i_mwskz           = gs_rseg-mwskz
+      i_waers           = gs_rbkp-waers
+      i_wrbtr           = lwrbtr
+    TABLES
+      t_mwdat           = gt_RTAX1U15
+    EXCEPTIONS
+      bukrs_not_found   = 1
+      country_not_found = 2
+      mwskz_not_defined = 3
+      mwskz_not_valid   = 4
+      ktosl_not_found   = 5
+      kalsm_not_found   = 6
+      parameter_error   = 7
+      knumh_not_found   = 8
+      kschl_not_found   = 9
+      unknown_error     = 10
+      account_not_found = 11
+      txjcd_not_valid   = 12
+      tdt_error         = 13
+      txa_error         = 14
+      OTHERS            = 15.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+  READ TABLE gt_RTAX1U15 INTO DATA(gs_RTAX1U15) INDEX 1.
+  gs_final-vatamt = gs_RTAX1U15-wmwst.
+  gs_final-vatamt1 = gs_RTAX1U15-wmwst.
+*  BREAK-POINT.
+  READ TABLE gt_makt INTO DATA(gs_makt) WITH KEY matnr = gs_rseg-matnr spras = 'E'.
+  gs_final-maktx = gs_makt-maktx.
+  APPEND gs_final TO gt_final.
+  CLEAR gs_final.
+ENDLOOP.
+LOOP AT gt_final INTO gs_final WHERE buDAT BETWEEN sdat-low AND sdat-high.
+  gs_final3-belnr = gs_final-belnr.
+  gs_final3-stceg = gs_final-stceg.
+  gs_final3-butxt = gs_final-butxt.
+  gs_final3-xblnr = gs_final-xblnr.
+  gs_final3-bldat = gs_final-bldat.
+  gs_final3-budat = gs_final-budat.
+  gs_final3-date = gs_final-date.
+  gs_final3-netamt = gs_final-netamt.
+  gs_final3-vatamt =  gs_final-vatamt.
+  gs_final3-vatamt1 =  gs_final-vatamt1.
+  gs_final3-mwskz1 = gs_final-mwskz1.
+  gs_final3-text1 = gs_final-text1.
+  gs_final3-name1 = gs_final-name1.
+  gs_final3-stceg1 = gs_final-stceg1.
+  gs_final3-maktx = gs_final-maktx.
+  APPEND gs_final3 TO gt_final3.
+  CLEAR gs_final3.
+ENDLOOP.
+SELECT bukrs,
+       belnr,
+       h_bldat,
+       h_budat,
+       dmbtr,
+       mwskz,
+       lifnr,
+       hkont,
+       buzid,
+       bschl
+       FROM bseg INTO TABLE @DATA(gt_bseg) WHERE bukrs = @pccode AND koart = 'S'. "bschl = '40'.
+SELECT lifnr, belnr FROM bseg INTO TABLE @DATA(gt_bseg1) WHERE bschl = '31'.
+SELECT belnr, xblnr FROM bkpf INTO TABLE @DATA(gt_bkpf).
+SELECT bukrs, stceg, butxt FROM t001 INTO TABLE @DATA(gt_t01).
+SELECT mwskz, text1, kalsm, spras FROM t007s INTO TABLE @DATA(gt_t07s).
+SELECT name1, stceg, lifnr FROM lfa1 INTO TABLE @DATA(gt_lf1).
+SELECT mcod1, saknr FROM skat INTO TABLE @DATA(gt_skat).
+LOOP AT gt_bseg INTO DATA(gs_bseg).
+  gs_final2-bldat = gs_bseg-h_bldat.
+  gs_final2-budat = gs_bseg-h_budat.
+  gs_final2-mwskz1 = gs_bseg-mwskz.
+  gs_final2-netamt = gs_bseg-dmbtr.
+  gs_final2-buzid = gs_bseg-buzid.
+*************************************************
+
+  READ TABLE gt_skat INTO DATA(gs_skat) WITH KEY saknr = gs_bseg-hkont.
+  gs_final2-maktx = gs_skat-mcod1.
+
+  LOOP AT gt_bseg INTO DATA(gs_bseg12) WHERE belnr = gs_bseg-belnr.
+    CASE gs_bseg12-buzid..
+      WHEN 'T'.
+        IF gs_bseg12-mwskz = gs_bseg-mwskz.
+          gs_final2-vatamt = gs_bseg12-dmbtr.
+          gs_final2-vatamt1 = gs_bseg12-dmbtr.
+          READ TABLE gt_BKPF INTO DATA(gs_BKPF) WITH KEY belnr = gs_bseg-belnr.
+          gs_final2-xblnr = gs_bkpf-xblnr.
+          READ TABLE gt_t01 INTO DATA(gs_t01) WITH KEY bukrs = gs_bseg-bukrs.
+          gs_final2-stceg = gs_t01-stceg.
+          gs_Final2-butxt = gs_t01-butxt.
+          gs_final2-date = | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { '.' } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+          READ TABLE gt_t07s INTO DATA(gs_t07s) WITH KEY mwskz = gs_bseg-mwskz kalsm = 'TAXAEN' spras = 'EN' .
+          IF sy-subrc = 0.
+            gs_final2-text1 = gs_t07s-text1.
+          ENDIF.
+          gs_final2-belnr = gs_bseg-belnr.
+
+          APPEND gs_final2 TO gt_Final2.
+          CLEAR gs_final2.
+
+        ENDIF.
+      WHEN OTHERS.
+        IF gs_bseg-mwskz = 'IC' OR gs_bseg-mwskz = 'IA' OR gs_bseg-mwskz = 'I0'.
+          gs_final2-vatamt = '0.00'.
+          gs_final2-vatamt1 = '0.00'.
+          READ TABLE gt_BKPF INTO gs_BKPF WITH KEY belnr = gs_bseg-belnr.
+          gs_final2-xblnr = gs_bkpf-xblnr.
+
+          READ TABLE gt_t01 INTO gs_t01 WITH KEY bukrs = gs_bseg-bukrs.
+          gs_final2-stceg = gs_t01-stceg.
+
+          gs_Final2-butxt = gs_t01-butxt.
+
+          gs_final2-date = | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { '.' } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+          READ TABLE gt_t07s INTO gs_t07s WITH KEY mwskz = gs_bseg-mwskz kalsm = 'TAXAEN' spras = 'EN' .
+          IF sy-subrc = 0.
+            gs_final2-text1 = gs_t07s-text1.
+          ENDIF.
+          gs_final2-belnr = gs_bseg-belnr.
+
+          APPEND gs_final2 TO gt_Final2.
+          CLEAR gs_final2.
+        ENDIF.
+    ENDCASE.
+  ENDLOOP.
+
+
+ENDLOOP.
+LOOP AT gt_final2 INTO gs_Final2.
+  READ TABLE gt_bseg1 INTO DATA(gs_bseg1) WITH KEY belnr = gs_final2-belnr.
+  READ TABLE gt_lf1 INTO DATA(gs_lf1) WITH KEY lifnr = gs_bseg1-lifnr.
+  gs_final2-name1 = gs_lf1-name1.
+  gs_final2-stceg1 = gs_lf1-stceg.
+  MODIFY gt_final2 FROM gs_final2.
+ENDLOOP.
+LOOP AT gt_final2 INTO gs_final2 WHERE buDAT BETWEEN sdat-low AND sdat-high.
+  IF gs_final2-buzid NE 'T'.
+    gs_final3-belnr = gs_final2-belnr.
+    gs_final3-stceg = gs_final2-stceg.
+    gs_final3-butxt = gs_final2-butxt.
+    gs_final3-xblnr = gs_final2-xblnr.
+    gs_final3-bldat = gs_final2-bldat.
+    gs_final3-budat = gs_final2-budat.
+    gs_final3-date = gs_final2-date.
+    gs_final3-netamt = gs_final2-netamt.
+    gs_final3-vatamt =  gs_final2-vatamt.
+    gs_final3-vatamt1 =  gs_final2-vatamt1.
+    gs_final3-mwskz1 = gs_final2-mwskz1.
+    gs_final3-text1 = gs_final2-text1.
+    gs_final3-name1 = gs_final2-name1.
+    gs_final3-stceg1 = gs_final2-stceg1.
+    gs_final3-maktx = gs_final2-maktx.
+    APPEND gs_final3 TO gt_final3.
+    CLEAR gs_final3.
+  ENDIF.
+ENDLOOP.
+LOOP AT gt_final3 INTO gs_final3.
+  gs_final3-serailno =  sy-tabix.
+  MODIFY gt_final3 FROM gs_final3.
+ENDLOOP.
+
+cl_salv_table=>factory( IMPORTING r_salv_table = DATA(gref_table)
+                         CHANGING t_table      = gt_final3 ).
+
+DATA(lo_column) = gref_table->get_columns( )->get_column( 'SERAILNO' ).
+lo_column->set_long_text( 'Sr. No.' ).
+DATA(lo_column14) = gref_table->get_columns( )->get_column( 'STCEG' ).
+lo_column14->set_long_text( 'Tax Payer TRN' ).
+DATA(lo_column1) = gref_table->get_columns( )->get_column( 'BUTXT' ).
+lo_column1->set_long_text( 'Company Name (if applicable)' ).
+DATA(lo_column12) = gref_table->get_columns( )->get_column( 'XBLNR' ).
+lo_column12->set_long_text( 'Tax Invoice / Tax credit note  No.' ).
+DATA(lo_column2) = gref_table->get_columns( )->get_column( 'BLDAT' ).
+lo_column2->set_long_text( 'Tax Invoice / Tax credit note Date' ).
+DATA(lo_column3) = gref_table->get_columns( )->get_column( 'BUDAT' ).
+lo_column3->set_long_text( ' Tax Invoice Received Date ' ).
+DATA(lo_column4) = gref_table->get_columns( )->get_column( 'DATE' ).
+lo_column4->set_long_text( 'Reporting period' ).
+lo_column4->set_output_length('25').
+DATA(lo_column5) = gref_table->get_columns( )->get_column( 'NETAMT' ).
+lo_column5->set_long_text( 'Tax Invoice Amount AED' ).
+DATA(lo_column6) = gref_table->get_columns( )->get_column( 'VATAMT' ).
+lo_column6->set_long_text( 'VAT Amount AED {VAT amount}' ).
+DATA(lo_column7) = gref_table->get_columns( )->get_column( 'VATAMT1' ).
+lo_column7->set_long_text( 'VAT Amount Recovered AED {VAT Amount}' ).
+DATA(lo_column8) = gref_table->get_columns( )->get_column( 'MWSKZ1' ).
+lo_column8->set_long_text( 'Tax Code' ).
+DATA(lo_column9) = gref_table->get_columns( )->get_column( 'TEXT1' ).
+lo_column9->set_long_text( 'Tax Desciption' ).
+DATA(lo_column10) = gref_table->get_columns( )->get_column( 'NAME1' ).
+lo_column10->set_long_text( 'Supplier  Name' ).
+DATA(lo_column11) = gref_table->get_columns( )->get_column( 'STCEG1' ).
+lo_column11->set_long_text( 'Supplier  TRN' ).
+DATA(lo_column19) = gref_table->get_columns( )->get_column( 'MAKTX' ).
+lo_column19->set_long_text( 'Clear description of the supply' ).
+DATA(lo_column15) = gref_table->get_columns( )->get_column( 'BL' ).
+lo_column15->set_long_text( 'VAT Adjustments (if any)' ).
+lo_column15->set_output_length('20').
+*gref_table->get_columns( )->set_optimize( abap_true ).
+DATA: gr_functions TYPE REF TO cl_salv_functions.
+gr_functions = gref_table->get_functions( ).
+gr_functions->set_all( abap_true ).
+gref_table->display( ).

@@ -1,0 +1,307 @@
+*&---------------------------------------------------------------------*
+*& Report ZVATSALES_REPORT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zvatsales_report.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME.
+  PARAMETERS: pcomc TYPE t001-bukrs OBLIGATORY.
+  SELECT-OPTIONS: sdat FOR sy-datum OBLIGATORY.
+SELECTION-SCREEN END OF BLOCK b1.
+TYPES: BEGIN OF ty_final,
+         bukrs      TYPE t001-bukrs,
+         stceg      TYPE t001-stceg,
+         butxt      TYPE t001-butxt,
+         xblnr      TYPE vbrk-xblnr,
+         "blenr      TYPE bseg-belnr,
+         audat      TYPE vbak-audat,
+**************************************************
+         budat      TYPE acdoca-budat,
+         vbeln      TYPE vbrp-vbeln,
+         mwsk1      TYPE vbrp-mwsk1,
+         text1      TYPE t007s-text1,
+***************************************************
+         netwr      TYPE vbrk-netwr,
+         mwsbk      TYPE vbrk-mwsbk,
+         Blankc     TYPE bseg-dMBTR,
+         mwsbk1     TYPE vbrk-mwsbk,
+         name1      TYPE kna1-name1,
+         stceg1     TYPE vbrk-stceg,
+         arktx      TYPE vbrp-arktx,
+         buzid      TYPE bseg-buzid,
+         hkont      TYPE bseg-hkont,
+         Blank1(10) TYPE c,
+       END OF ty_final.
+TYPES: BEGIN OF ty_final1,
+         serailno   TYPE int4,
+         stceg      TYPE t001-stceg,
+         vbeln      TYPE vbrp-vbeln,
+         butxt      TYPE t001-butxt,
+         xblnr      TYPE vbrk-xblnr,
+         "blenr      TYPE bseg-belnr,
+         audat      TYPE vbak-audat,
+******************************************
+         budat(50)  TYPE c,
+         mwsk1      TYPE vbrp-mwsk1,
+         text1      TYPE t007s-text1,
+**********************************************         ,
+         netwr      TYPE vbrk-netwr,
+         mwsbk      TYPE vbrk-mwsbk,
+         Blankc     TYPE bseg-dMBTR,
+         mwsbk1     TYPE vbrk-mwsbk,
+         name1      TYPE kna1-name1,
+         stceg1     TYPE vbrk-stceg,
+         arktx      TYPE vbrp-arktx,
+*         hkont      TYPE bseg-hkont,
+         Blank1(10) TYPE c,
+       END OF ty_final1.
+DATA : v_count TYPE int4.
+DATA : gt_final TYPE TABLE OF ty_Final,
+       gs_Final TYPE ty_final.
+DATA : gt_final3 TYPE TABLE OF ty_Final,
+       gs_Final3 TYPE ty_final.
+DATA : gt_final2 TYPE TABLE OF ty_Final1,
+       gs_Final2 TYPE ty_final1.
+DATA : gt_final4 TYPE TABLE OF ty_Final1,
+       gs_Final4 TYPE ty_final1.
+
+SELECT stceg, butxt, bukrs FROM t001 INTO TABLE @DATA(gt_t001).
+SELECT stceg, xblnr, netwr, mwsbk, knumv, bukrs, belnr, kunag, vbeln FROM vbrk INTO TABLE @DATA(gt_vbrk).
+SELECT belnr, budat, bldat FROM acdoca INTO TABLE @DATA(gt_acdoca1).
+SELECT audat, kunnr, vkorg, erdat, vbeln FROM vbak INTO TABLE @DATA(gt_vbak).
+SELECT name1, kunnr FROM kna1 INTO TABLE @DATA(gt_kna1).
+SELECT arktx, knumv_ana, vbeln, mwsk1 FROM vbrp INTO TABLE @DATA(gt_vbrp).
+SELECT text1, mwskz, kalsm FROM t007s INTO TABLE @DATA(gt_t007s).
+
+LOOP AT gt_vbrp INTO DATA(gs_vbrp).
+  gs_final-vbeln = gs_vbrp-vbeln.
+  gs_final-arktx = gs_vbrp-arktx.
+  gs_final-mwsk1 = gs_vbrp-mwsk1.
+  READ TABLE gt_vbrk INTO DATA(gs_vbrk) WITH KEY vbeln = gs_vbrp-vbeln.
+  gs_final-xblnr = gs_vbrk-xblnr.
+  gs_final-netwr = gs_vbrk-netwr.
+  gs_final-stceg1 = gs_vbrk-stceg.
+  gs_final-mwsbk = gs_vbrk-mwsbk.
+*  gs_final-mwsbk1 = gs_vbrk-mwsbk.
+  READ TABLE Gt_t001 INTO DATA(gs_t001) WITH KEY bukrs = gs_vbrk-bukrs.
+  gs_final-bukrs = gs_t001-bukrs.
+  gs_final-stceg = gs_t001-stceg.
+  gs_final-butxt = gs_t001-butxt.
+  READ TABLE gt_acdoca1 INTO DATA(gs_acdoca1) WITH KEY belnr = gs_vbrk-belnr.
+  gs_final-budat = gs_acdoca1-budat.
+  gs_final-audat = gs_acdoca1-bldat.
+  READ TABLE gt_vbak INTO DATA(gs_vbak) WITH KEY vbeln = gs_vbrk-vbeln.
+
+  READ TABLE gt_kna1 INTO DATA(gs_kna1) WITH KEY kunnr = gs_vbrk-kunag.
+  gs_Final-name1 = gs_kna1-name1.
+  READ TABLE gt_t007s INTO DATA(gs_t007s) WITH KEY mwskz = gs_vbrp-mwsk1 kalsm = 'TAXAEN'.
+  gs_final-text1 = gs_t007s-text1.
+  APPEND gs_final TO gt_final.
+  CLEAR gs_final.
+ENDLOOP.
+DATA: d_index LIKE sy-tabix.
+v_count = 1.
+LOOP AT gt_final INTO gs_final WHERE budat BETWEEN sdat-low AND sdat-high AND bukrs = pcomc .
+  gs_final4-vbeln =  gs_final-vbeln.
+  gs_final4-mwsk1  = gs_final-mwsk1.
+  gs_final4-text1 =  gs_final-text1.
+  gs_final4-stceg  = gs_final-stceg.
+  gs_final4-butxt  = gs_final-butxt.
+  gs_final4-xblnr  = gs_final-xblnr.
+  gs_final4-netwr  = gs_final-netwr.
+  gs_final4-stceg1 = gs_final-stceg1.
+  gs_final4-mwsbk  = gs_final-mwsbk.
+  gs_final4-mwsbk1 = gs_final-mwsbk1.
+  gs_final4-audat  = gs_final-audat.
+  gs_final4-buDAT  = | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |..
+  gs_Final4-name1  = gs_final-name1.
+  gs_final4-arktx  = gs_final-arktx.
+  APPEND gs_final4 TO gt_final4.
+  CLEAR gs_final4.
+ENDLOOP.
+
+SELECT stceg, butxt, bukrs FROM t001 INTO TABLE @DATA(gt_t01).
+SELECT irn,
+       h_bldat,
+       dmbtr,
+       kunnr,
+       bukrs,
+       belnr, buzid, hkont, h_budat, mwskz, stceg FROM bseg INTO TABLE @DATA(gt_bseg) WHERE bukrs = @pcomc AND koart = 'S'.
+SELECT xblnr, bukrs, belnr FROM bkpf INTO TABLE @DATA(gt_acdoca).
+SELECT name1, kunnr FROM kna1 INTO TABLE @DATA(gt_kna11).
+SELECT stceg, bukrs FROM vbrk INTO TABLE @DATA(gt_vbrk1).
+SELECT text1, mwskz, kalsm FROM t007s INTO TABLE @DATA(gt_t007s1).
+SELECT mcod1, saknr FROM skat INTO TABLE @DATA(gt_skat).
+LOOP AT gt_bseg INTO DATA(gs_bseg).
+  IF gs_bseg-mwskz NE 'I0' AND
+    gs_bseg-mwskz NE 'IA' AND
+    gs_bseg-mwskz NE 'IB' AND
+    gs_bseg-mwskz NE 'IC' AND
+    gs_bseg-mwskz NE 'ID' AND
+    gs_bseg-mwskz NE 'RA' AND
+        gs_bseg-mwskz NE 'RB' AND
+        "gs_bseg-mwskz NE '**' AND
+        gs_bseg-mwskz IS NOT INITIAL.
+
+    gs_final3-vbeln = gs_bseg-belnr.
+    gs_final3-audat = gs_bseg-h_bldat.
+    gs_final3-budat = gs_bseg-H_BuDAT.
+*    gs_final-budat = | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+    gs_final3-netwr = gs_bseg-dmbtr.
+    gs_final3-mwsk1 = gs_bseg-mwskz.
+    gs_final3-buzid = gs_bseg-buzid.
+    gs_Final3-stceg1 = gs_bseg-stceg.
+    gs_final3-hkont = gs_bseg-hkont.
+    READ TABLE Gt_t01 INTO DATA(gs_t01) WITH KEY bukrs = gs_bseg-bukrs .
+    gs_final3-bukrs = gs_t01-bukrs.
+    gs_final3-stceg = gs_t01-stceg.
+    gs_final3-butxt = gs_t01-butxt.
+    READ TABLE gt_acdoca INTO DATA(gs_acdoca) WITH KEY belnr = gs_bseg-belnr .
+    gs_final3-xblnr = gs_acdoca-xblnr.
+    LOOP AT gt_bseg INTO DATA(gs_bseg12) WHERE belnr = gs_bseg-belnr.
+      CASE gs_bseg12-buzid.
+        WHEN 'T'.
+          IF gs_bseg12-mwskz = gs_bseg-mwskz.
+            gs_final3-mwsbk = gs_bseg12-dmbtr.
+            gs_final3-mwsbk1 = gs_bseg12-dmbtr.
+            READ TABLE gt_kna11 INTO DATA(gs_kna11) WITH KEY kunnr = gs_bseg-kunnr.
+            gs_Final3-name1 = gs_kna11-name1.
+            READ TABLE gt_t007s1 INTO DATA(gs_t007s1) WITH KEY mwskz = gs_bseg-mwskz kalsm = 'TAXAEN'.
+            gs_final3-text1 = gs_t007s1-text1.
+            READ TABLE GT_skat INTO DATA(gs_skat) WITH KEY saknr = gs_bseg-hkont.
+            gs_final3-arktx = gs_skat-mcod1.
+            APPEND gs_final3 TO gt_final3.
+            CLEAR gs_final3.
+          ENDIF.
+        WHEN OTHERS.
+          IF gs_bseg-mwskz = 'O0' OR gs_bseg-mwskz = 'OA' OR gs_bseg-mwskz = 'OC' OR gs_bseg-mwskz = 'OE'.
+            gs_final2-mwsbk = '0.00'.
+*            gs_final2-mwsbk1 = '0.00'.
+
+              READ TABLE gt_kna11 INTO gs_kna11 WITH KEY kunnr = gs_bseg-kunnr.
+              gs_Final3-name1 = gs_kna11-name1.
+*            READ TABLE gt_vbrk1 INTO gs_vbrk1 WITH KEY bukrs = gs_bseg-bukrs.
+
+              READ TABLE gt_t007s1 INTO gs_t007s1 WITH KEY mwskz = gs_bseg-mwskz kalsm = 'TAXAEN'.
+              gs_final3-text1 = gs_t007s1-text1.
+              READ TABLE GT_skat INTO gs_skat WITH KEY saknr = gs_bseg-hkont.
+              gs_final3-arktx = gs_skat-mcod1.
+              APPEND gs_final3 TO gt_final3.
+              CLEAR gs_final3.
+          ENDIF.
+      ENDCASE.
+    ENDLOOP.
+
+
+
+
+  ENDIF.
+ENDLOOP.
+
+LOOP AT gt_final3 INTO gs_final3 WHERE buDAT BETWEEN sdat-low AND sdat-high AND bukrs = pcomc .
+  IF gs_final3-buzid NE 'T'." AND gs_final3-hkont NE '0000410005'.
+    gs_final2-stceg  = gs_final3-stceg.
+    gs_final2-mwsk1  = gs_final3-mwsk1.
+    gs_final2-text1 =  gs_final3-text1.
+    gs_final2-vbeln  = gs_final3-vbeln.
+    gs_final2-butxt  = gs_final3-butxt.
+    gs_final2-xblnr  = gs_final3-xblnr.
+    IF gs_final3-hkont NE '0000410005'.
+      gs_final2-netwr  = gs_final3-netwr.
+      gs_final2-mwsbk  = gs_final3-mwsbk.
+    ENDIF.
+    gs_final2-stceg1 = gs_final3-stceg1.
+
+
+    gs_final2-audat  = gs_final3-audat.
+    gs_final2-buDAT =  | { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+    gs_Final2-name1  = gs_final3-name1.
+    gs_final2-blankc = gs_final3-blankc.
+    gs_final2-arktx  = gs_final3-arktx.
+*    gs_final2-hkont = gs_final3-hkont.
+
+    SELECT SINGLE dmbtr FROM bseg INTO @DATA(dt_netwr) WHERE belnr = @gs_final3-vbeln AND hkont = '0000410005'.
+    IF sy-subrc = 0.
+      LOOP AT gt_final3 INTO DATA(gs_final35) WHERE vbeln = gs_final3-vbeln.
+        CASE gs_final3-hkont.
+          WHEN '0000410005'.
+            gs_final2-blankc = dt_netwr.
+            gs_final2-mwsbk1 = gs_final3-mwsbk1.
+          WHEN OTHERS.
+            gs_final2-blankc = gs_final3-blankc.
+        ENDCASE.
+        CLEAR gs_final35.
+      ENDLOOP.
+    ENDIF.
+    APPEND gs_final2 TO gt_final2.
+    CLEAR: gs_final2 , gs_final3, dt_netwr.
+  ENDIF.
+ENDLOOP.
+LOOP AT gt_final2 INTO gs_final2.
+  gs_final4-stceg  = gs_final2-stceg.
+  gs_final4-mwsk1  = gs_final2-mwsk1.
+  gs_final4-text1 =  gs_final2-text1.
+  gs_final4-vbeln  = gs_final2-vbeln.
+  gs_final4-butxt  = gs_final2-butxt.
+  gs_final4-xblnr  = gs_final2-xblnr.
+  gs_final4-netwr  = gs_final2-netwr.
+  gs_final4-stceg1 = gs_final2-stceg1.
+  gs_final4-mwsbk  = gs_final2-mwsbk.
+  gs_final4-mwsbk1 = gs_final2-mwsbk1.
+  gs_final4-audat  = gs_final2-audat.
+  gs_final4-buDAT =  gs_final2-budat."| { sdat-low+6(2) } { '.' } { sdat-low+4(2) } { '.' } { sdat-low(4) } { 'to' } { sdat-high+6(2) } { '.' } { sdat-high+4(2) } { '.' } { sdat-high(4) } |.
+  gs_Final4-name1  = gs_final2-name1.
+  gs_final4-blankc = gs_final2-blankc.
+  gs_final4-arktx  = gs_final2-arktx.
+*  gs_final4-hkont = gs_final2-hkont.
+  gs_final4-blankc = gs_final2-blankc.
+*            gs_final2-blankc = dt_netwr.
+
+
+  APPEND gs_final4 TO gt_final4.
+  CLEAR gs_final4.
+ENDLOOP.
+LOOP AT gt_final4 INTO gs_final4.
+  gs_final4-serailno =  sy-tabix.
+  MODIFY gt_final4 FROM gs_final4.
+ENDLOOP.
+cl_salv_table=>factory( IMPORTING r_salv_table = DATA(gref_table)
+               CHANGING t_table      = gt_final4 ).
+DATA(lo_column) = gref_table->get_columns( )->get_column( 'SERAILNO' ).
+lo_column->set_long_text( 'SR No.' ).
+DATA(lo_column19) = gref_table->get_columns( )->get_column( 'STCEG' ).
+lo_column19->set_long_text( 'Tax Payer TRN' ).
+DATA(lo_column1) = gref_table->get_columns( )->get_column( 'BUTXT' ).
+lo_column1->set_long_text( 'Company Name' ).
+DATA(lo_column12) = gref_table->get_columns( )->get_column( 'XBLNR' ).
+lo_column12->set_long_text( 'Tax Invoice/Tax credit note  No' ).
+lo_column12->set_output_length('30').
+DATA(lo_column2) = gref_table->get_columns( )->get_column( 'AUDAT' ).
+lo_column2->set_long_text( 'Tax credit note Date' ).
+DATA(lo_column3) = gref_table->get_columns( )->get_column( 'BUDAT' ).
+lo_column3->set_long_text( 'Reporting period' ).
+DATA(lo_column4) = gref_table->get_columns( )->get_column( 'NETWR' ).
+lo_column4->set_long_text( 'Tax Invoice/Tax credit note Amount AED' ).
+DATA(lo_column5) = gref_table->get_columns( )->get_column( 'MWSBK' ).
+lo_column5->set_long_text( 'VAT Amount AED' ).
+DATA(lo_column6) = gref_table->get_columns( )->get_column( 'BLANKC' ).
+lo_column6->set_long_text( 'Delivery Charges' ).
+DATA(lo_column7) = gref_table->get_columns( )->get_column( 'MWSBK1' ).
+lo_column7->set_long_text( ' VAT Amount AED ' ).
+DATA(lo_column8) = gref_table->get_columns( )->get_column( 'NAME1' ).
+lo_column8->set_long_text( 'Customer Name' ).
+DATA(lo_column9) = gref_table->get_columns( )->get_column( 'STCEG1' ).
+lo_column9->set_long_text( 'Customer TRN' ).
+DATA(lo_column10) = gref_table->get_columns( )->get_column( 'ARKTX' ).
+lo_column10->set_long_text( 'Clear description of the supply' ).
+DATA(lo_column11) = gref_table->get_columns( )->get_column( 'BLANK1' ).
+lo_column11->set_long_text( 'VAT Adjustments (if any)' ).
+lo_column11->set_output_length('20').
+*gref_table->get_columns( )->set_optimize( abap_true ).
+DATA: gr_functions TYPE REF TO cl_salv_functions.
+gr_functions = gref_table->get_functions( ).
+gr_functions->set_all( abap_true ).
+
+
+gref_table->display( ).
